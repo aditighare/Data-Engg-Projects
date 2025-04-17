@@ -1,0 +1,26 @@
+LOADING RAW DATA TO S3
+1. Dataset -> Kagal (records rows - 1244)
+2. Open AWS -> Login 
+3. Change region -> Mumbai
+4. Open S3 -> Create Bucket: myprojectbucket-0204-> Employee data upload -> 
+5. Create IAM Role -> search IAM Role -> Use case -> Glue -> Create Role -> Change to AWS Service ->  -> give permissions -> Policies: S3FullAccess , GlueControlFullAccess, CloudWatchFullAccess  -> Give Role name: Myprojectrole1 -> Create Role -> View Role
+6. Go to Glue -> ETL Jobs -> Script Editor: Egine -> Create Script -> Give job name: pysparkprojectetl -> 
+
+TRANSFORM DATA WITH 
+7. Now we will upload script -> 
+8. Job detials -> give IAM Role -> Save 
+9. Once job updated -> now we will run ->success
+10. Go to S3 bucket -> Transformed data folder will get created -> download the csv file (to verify)
+
+LOADING
+11. Go to Snowflake -> Go to IAM -> Create IAM Policy -> Create Ploicy -> json -> copy the code
+12. Write the bucket name in json code in policy editor -> give all permisions of s3-> Give policy name -> click on create ->next and policy created
+13. We will create Roles in IAM -> Create role -> Select AWS Account -> Give my policy that we just created -> Now we will give name of role: myprojectrole2 -> created
+
+SNOWFLAKE
+14. Go to snowflake -> First we will create warehouse-> exectue line by line code -> 
+myproject2 role - arn copy and paste
+and update bucket name
+
+15. now go to my project role -> edit trust policies and paste this code -> copy external id and paste it -> copy iam user arn and paste it from snowflake -> update policy
+16. Now we will craete stage -> 
