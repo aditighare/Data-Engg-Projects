@@ -1,0 +1,166 @@
+// AWS Glue (pyspark script)
+
+import sys
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.utils import getResolvedOptions
+from awsglue.job import Job
+from pyspark.sql.functions import col, regexp_replace, udf
+from pyspark.sql.types import DateType
+from dateutil import parser
+ 
+# Initialize Glue context and Spark session
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+ 
+# Load the CSV data from S3
+input_path = "s3://my-project-bucket-0204/Employee_Data.csv"
+df = spark.read.option("header", "true").csv(input_path)
+ 
+# UDF to parse dates
+def parse_date(date_str):
+    try:
+        return parser.parse(date_str)
+    except:
+        return None
+ 
+parse_date_udf = udf(parse_date, DateType())
+ 
+# Convert 'Hire Date' to datetime
+df = df.withColumn("Hire Date", parse_date_udf(col("Hire Date")))
+ 
+# Drop rows with null values in any column except 'Hire Date'
+columns_to_check = [col for col in df.columns if col not in ["Hire Date"]]
+df = df.dropna(subset=columns_to_check)
+ 
+# Drop the 'Exit Date' column
+df = df.drop("Exit Date")
+ 
+# Convert 'Annual Salary' and 'Bonus %' to numeric
+df = df.withColumn("Annual Salary", regexp_replace(col("Annual Salary"), "[\\$,]", "").cast("float"))
+df = df.withColumn("Bonus %", regexp_replace(col("Bonus %"), "%", "").cast("float"))
+ 
+# Drop duplicate records
+df = df.dropDuplicates()
+ 
+# Reorder columns (example: move 'Department' to the front)
+columns = ["Department"] + [col for col in df.columns if col != "Department"]
+df = df.select(columns)
+ 
+# Write the cleaned data back to S3 in CSV format
+output_path = "s3://my-project-bucket-0204/Transformed_Data"
+df.write.mode("overwrite").csv(output_path, header=True)
+ 
+job.commit()
+
+
+
+
+
+//S3 policies inline policy for integration with Snowflake
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion"
+      ],
+      "Resource": "arn:aws:s3:::my-project-bucket-0204/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::my-project-bucket-0204"
+      ],
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "*"
+          ]
+        }
+      }
+    }
+  ]
+}
+
+
+
+
+
+//
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::152771957633:user/qowy0000-s"
+            },
+            "Action": "sts:AssumeRole",
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "DF78164_SFCRole=3_vUs5I9rOeztaV1s2uACOZdne+p8="
+                }
+            }
+        }
+    ]
+}
+
+
+
+//Snowflake Code
+
+create warehouse project_wh;
+create database project_db;
+create schema project_sc;
+ 
+create or replace storage integration project_integration
+type = external_stage
+storage_provider = s3
+enabled = true
+storage_aws_role_arn = 'arn:aws:iam::220467647553:role/my-project-role-2'
+storage_allowed_locations = ('s3://my-project-bucket-0204/');
+ 
+desc integration project_integration;
+ 
+create or replace file format project_format type = csv field_delimiter = ',' skip_header = 1 null_if = ('NULL', 'null') empty_field_as_null = true;
+ 
+create or replace stage project_stage
+storage_integration = project_integration
+url = 's3://my-project-bucket-0204/'
+file_format = project_format;
+ 
+CREATE OR REPLACE TABLE Employee
+(
+    Department VARCHAR(50), 
+    Employee VARCHAR(50),
+    FullName VARCHAR(50),
+    JobTitle VARCHAR(50), 
+    BusinessUnit VARCHAR(50),
+    Gender VARCHAR(50),
+    Ethnicity VARCHAR(50),
+    Age INT,
+    HireDate DATE,
+    AnnualSalary DECIMAL(10,2),
+    Bonus INT,
+    Country VARCHAR(50),
+    City VARCHAR(50)
+);
+ 
+copy into Employee from @project_stage
+ON_ERROR = 'skip_file';
+ 
+SELECT * from Employee;
+ 
+ 
