@@ -1,2 +1,2 @@
 # Data-Engg-Projects
-Internship projects
+This project involves building a robust ETL (Extract, Transform, Load) pipeline designed to efficiently process and load data into a cloud data warehouse. Raw CSV data stored in AWS S3 is extracted, cleaned, and transformed using PySpark running on AWS Glue, then loaded into Snowflake using its powerful COPY command. The primary objectives include ensuring data quality by removing duplicates, handling nulls, reordering columns, performing casts and truncating overlength text values. This report details the system’s architecture, data flow, database design, ETL implementation, and more.
